@@ -21,7 +21,7 @@
 // external & public view & pure functions
 
 // SPDX-License-Identifier: SEE LICENSE IN LICENSE
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.20; 
 import {VRFConsumerBaseV2Plus} from "@chainlink/contracts/src/v0.8/vrf/dev/VRFConsumerBaseV2Plus.sol";
 import {VRFV2PlusClient} from "@chainlink/contracts/src/v0.8/vrf/dev/libraries/VRFV2PlusClient.sol";
 import {AutomationCompatibleInterface} from "@chainlink/contracts/src/v0.8/automation/interfaces/AutomationCompatibleInterface.sol";
@@ -31,6 +31,8 @@ contract Raffle is VRFConsumerBaseV2Plus,AutomationCompatibleInterface{ //抽奖
     error Raffle__NotEnoughETHEntered(); //自定义错误，表示支付的ETH不足
     error Raffle__TransferFailed(); //中奖者发送失败
     error Raffle__NotOpen(); //中奖者发送失败
+    error Raffle__UpkeepNotNeeded(uint256 currentBalance, uint256 numPlayers, uint256 raffleState);
+
 
     /**Type declarations*/
     enum RaffleState {
@@ -59,6 +61,9 @@ contract Raffle is VRFConsumerBaseV2Plus,AutomationCompatibleInterface{ //抽奖
     /**Events */
     event RaffleEntered(address indexed player); //玩家进入抽奖事件
     event RaffleWinnerPicked(address indexed winner); //玩家中奖事件
+    
+    
+    /**function */
     constructor(uint256 entranceFee,
                 uint256 interval, 
                 address vrfCoordinator,
@@ -91,7 +96,6 @@ contract Raffle is VRFConsumerBaseV2Plus,AutomationCompatibleInterface{ //抽奖
         
     }
     function pickWinner() private { //选出赢家
-        //TODO
         // 1. 选择随机数
         // 2. 选择赢家
         // 3. 发放奖金
@@ -169,11 +173,20 @@ contract Raffle is VRFConsumerBaseV2Plus,AutomationCompatibleInterface{ //抽奖
      * and it kicks off a Chainlink VRF call to get a random winner.
      */
      function performUpkeep(bytes calldata /* performData */) external override {
+       (bool upkeepNeeded,) = this.checkUpkeep(bytes(""));
+       if (!upkeepNeeded) {
+            revert Raffle__UpkeepNotNeeded(address(this).balance, s_players.length, uint256(s_raffleState));
+       } 
        pickWinner();
         
     }
     function getEntranceFee() public view returns (uint256) { //获取入场费
         return i_entranceFee;
     }
-   
+    function getRaffleState() public view returns (RaffleState){
+        return s_raffleState;
+    }
+    function getPlayer(uint256 indexOfPlayer) public view returns (address){
+        return s_players[indexOfPlayer];
+    }
 }
