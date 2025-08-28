@@ -5,11 +5,6 @@ import {Raffle} from "../src/Raffle.sol";
 import {HelperConfig} from "./HelperConfig.s.sol";
 import {CreateSubscription,FundSubscription,AddConsumer} from "./Interactions.s.sol";
 contract DeployRaffle is Script{
-    
-    constructor(){
-        
-    }
-
     function run() external{
         vm.startBroadcast();
         vm.stopBroadcast(); 

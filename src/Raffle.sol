@@ -47,6 +47,8 @@ contract Raffle is VRFConsumerBaseV2Plus,AutomationCompatibleInterface{ //抽奖
     uint256 public s_lastTimeStamp;     //上一次开奖时间
     address payable[] public s_players; //玩家地址数组
     address public s_recentWinner; //最近的赢家地址
+    RaffleState private s_raffleState; //彩票状态变量
+
 
      // Chainlink VRF Variables
     bytes32 private immutable i_keyHash;
@@ -55,7 +57,6 @@ contract Raffle is VRFConsumerBaseV2Plus,AutomationCompatibleInterface{ //抽奖
     uint32 private immutable i_callbackGasLimit;
     uint16 private constant REQUEST_CONFIRMATIONS = 3;
     uint32 private constant NUM_WORDS = 1;
-    RaffleState private s_raffleState; //彩票状态变量
     
 
     /**Events */
@@ -78,8 +79,7 @@ contract Raffle is VRFConsumerBaseV2Plus,AutomationCompatibleInterface{ //抽奖
         // Chainlink VRF Initialization
         i_keyHash = gasLane;
         i_subscriptionId = subscriptionId;
-        i_callbackGasLimit = callbackGasLimit;
-        
+        i_callbackGasLimit = callbackGasLimit; 
     }
 
  
@@ -93,8 +93,8 @@ contract Raffle is VRFConsumerBaseV2Plus,AutomationCompatibleInterface{ //抽奖
         }
         s_players.push(payable(msg.sender)); //将玩家地址添加到数组中
         emit RaffleEntered(msg.sender); //触发玩家进入抽奖事件
-        
     }
+    
     function pickWinner() private { //选出赢家
         // 1. 选择随机数
         // 2. 选择赢家
@@ -178,8 +178,8 @@ contract Raffle is VRFConsumerBaseV2Plus,AutomationCompatibleInterface{ //抽奖
             revert Raffle__UpkeepNotNeeded(address(this).balance, s_players.length, uint256(s_raffleState));
        } 
        pickWinner();
-        
     }
+
     function getEntranceFee() public view returns (uint256) { //获取入场费
         return i_entranceFee;
     }
@@ -190,3 +190,5 @@ contract Raffle is VRFConsumerBaseV2Plus,AutomationCompatibleInterface{ //抽奖
         return s_players[indexOfPlayer];
     }
 }
+//整体流程循环：部署 → 多用户enterRaffle（累积玩家/资金） → Keeper checkUpkeep（定期） → performUpkeep → pickWinner（VRF请求） → fulfillRandomWords（回调） → 重置 → 循环。
+
