@@ -31,6 +31,7 @@ contract Raffle is VRFConsumerBaseV2Plus,AutomationCompatibleInterface{ //抽奖
     error Raffle__NotEnoughETHEntered(); //自定义错误，表示支付的ETH不足
     error Raffle__TransferFailed(); //中奖者发送失败
     error Raffle__NotOpen(); //中奖者发送失败
+    error Raffle_TimerIntervalNotNnough();
     error Raffle__UpkeepNotNeeded(uint256 currentBalance, uint256 numPlayers, uint256 raffleState);
 
 
@@ -95,32 +96,7 @@ contract Raffle is VRFConsumerBaseV2Plus,AutomationCompatibleInterface{ //抽奖
         emit RaffleEntered(msg.sender); //触发玩家进入抽奖事件
     }
     
-    function pickWinner() private { //选出赢家
-        // 1. 选择随机数
-        // 2. 选择赢家
-        // 3. 发放奖金
-        // 4. 重置彩票
-        // 5. 记录时间戳
-        if ((block.timestamp - s_lastTimeStamp) < i_interval) {
-            revert("Interval time has not passed");
-        }
-        s_raffleState = RaffleState.CALCULATING; //将彩票状态设置为CALCULATING，表示正在计算赢家
-        //请求随机数
-        VRFV2PlusClient.RandomWordsRequest memory request = VRFV2PlusClient.RandomWordsRequest({
-                keyHash: i_keyHash,
-                subId: i_subscriptionId,
-                requestConfirmations: REQUEST_CONFIRMATIONS,
-                callbackGasLimit: i_callbackGasLimit,
-                numWords: NUM_WORDS,
-                extraArgs: VRFV2PlusClient._argsToBytes(
-                    VRFV2PlusClient.ExtraArgsV1({
-                        nativePayment: false
-                    })
-                )
-        });
-
-        s_vrfCoordinator.requestRandomWords(request);
-    }
+   
     ///CEI pattern check, effects, interactions // 模式 检查，影响，交互
     ///获取到随机数后的处理
     function fulfillRandomWords(uint256, uint256[] calldata randomWords) internal override {
@@ -171,13 +147,33 @@ contract Raffle is VRFConsumerBaseV2Plus,AutomationCompatibleInterface{ //抽奖
     /**
      * @dev Once `checkUpkeep` is returning `true`, this function is called
      * and it kicks off a Chainlink VRF call to get a random winner.
+     * 
+     * // 1. 选择随机数
+        // 2. 选择赢家
+        // 3. 发放奖金
+        // 4. 重置彩票
+        // 5. 记录时间戳
      */
      function performUpkeep(bytes calldata /* performData */) external override {
        (bool upkeepNeeded,) = this.checkUpkeep(bytes(""));
        if (!upkeepNeeded) {
             revert Raffle__UpkeepNotNeeded(address(this).balance, s_players.length, uint256(s_raffleState));
-       } 
-       pickWinner();
+       }
+         s_raffleState = RaffleState.CALCULATING; //将彩票状态设置为CALCULATING，表示正在计算赢家
+        //请求随机数
+        VRFV2PlusClient.RandomWordsRequest memory request = VRFV2PlusClient.RandomWordsRequest({
+                keyHash: i_keyHash,
+                subId: i_subscriptionId,
+                requestConfirmations: REQUEST_CONFIRMATIONS,
+                callbackGasLimit: i_callbackGasLimit,
+                numWords: NUM_WORDS,
+                extraArgs: VRFV2PlusClient._argsToBytes(
+                    VRFV2PlusClient.ExtraArgsV1({
+                        nativePayment: false
+                    })
+                )
+        });
+        s_vrfCoordinator.requestRandomWords(request); 
     }
 
     function getEntranceFee() public view returns (uint256) { //获取入场费
