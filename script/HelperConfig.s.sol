@@ -88,7 +88,7 @@ contract HelperConfig is Script,CodeConstants {
                 subscriptionId: 0, // update this with your subscriptionId
                 callbackGasLimit: 500000,
                 link: 0x779877A7B0D9E8603169DdbD7836e478b4624789,
-                account: 0x514910771AF9Ca656af840dff83E8264EcF986CA //你自己控制的测试钱包地址 用来发交易、创建 VRF subscription、支付 LINK
+                account: 0xbc4b0Fc8eB6c564488c6Cb8859c09e37f839E441 //你自己控制的测试钱包地址 用来发交易、创建 VRF subscription、支付 LINK
             }); 
     }
     //sepolia测试链
@@ -102,7 +102,7 @@ contract HelperConfig is Script,CodeConstants {
                 subscriptionId: 0, // update this with your subscriptionId
                 callbackGasLimit: 500000,
                 link:0x514910771AF9Ca656af840dff83E8264EcF986CA,
-                account: 0x514910771AF9Ca656af840dff83E8264EcF986CA//你自己控制的真实钱包地址 用来发交易、创建 VRF subscription、支付 LINK
+                account: 0xbc4b0Fc8eB6c564488c6Cb8859c09e37f839E441//你自己控制的真实钱包地址 用来发交易、创建 VRF subscription、支付 LINK
             }); 
     }
 
