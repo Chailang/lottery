@@ -16,10 +16,12 @@ contract DeployRaffle is Script{
         console2.log("network config:",networkConfig.vrfCoordinatorV2_5);
         if (networkConfig.subscriptionId == 0){ //没有订阅
           CreateSubscription createSub= new CreateSubscription(); //创建订阅
+          //更新订阅id
           (networkConfig.subscriptionId,networkConfig.vrfCoordinatorV2_5) = createSub.createSubscription(networkConfig.vrfCoordinatorV2_5,networkConfig.account);
           FundSubscription funder =  new FundSubscription();
           funder.fundSubscription(networkConfig.vrfCoordinatorV2_5,networkConfig.subscriptionId,networkConfig.link,networkConfig.account);  
-           helperConfig.setConfig(block.chainid, networkConfig);
+          //更新配置
+          helperConfig.setConfig(block.chainid, networkConfig);
         }
         //部署合约
         vm.startBroadcast();

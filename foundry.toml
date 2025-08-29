@@ -8,7 +8,7 @@ remappings = [
   'foundry-devops/=lib/foundry-devops'
 ]
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
-# 权限设置 
+# 权限设置 主要  DevOpsTools 获取最新部署的合约使用
 fs_permissions = [
     { access = "read", path = "./broadcast" },
     { access = "read", path = "./reports" },
