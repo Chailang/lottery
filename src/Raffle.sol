@@ -187,6 +187,15 @@ contract Raffle is VRFConsumerBaseV2Plus,AutomationCompatibleInterface{ //抽奖
     function getPlayer(uint256 indexOfPlayer) public view returns (address){
         return s_players[indexOfPlayer];
     }
+    function getLastTimeStamp() public view returns (uint256){
+        return s_lastTimeStamp;
+    }
+    function getRecentWinner() public view returns (address){
+        return s_recentWinner;
+    }
+    function getPlayerNumbers() public view returns (uint256){
+        return s_players.length;
+    }
 }
 //整体流程循环：部署 → 多用户enterRaffle（累积玩家/资金） → Keeper checkUpkeep（定期） → performUpkeep → pickWinner（VRF请求） → fulfillRandomWords（回调） → 重置 → 循环。
 

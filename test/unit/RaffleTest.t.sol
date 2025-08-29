@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: SEE LICENSE IN LICENSE
 pragma solidity ^0.8.20;
-import {Test} from "forge-std/Test.sol";
+import {Test,console} from "forge-std/Test.sol";
 import {Vm} from "forge-std/Vm.sol";
 import {Raffle} from "../../src/Raffle.sol";
 import {DeployRaffle} from "../../script/DeployRaffle.s.sol";
 import {HelperConfig} from "../../script/HelperConfig.s.sol";
+import {VRFCoordinatorV2_5Mock} from "@chainlink/contracts/src/v0.8/vrf/mocks/VRFCoordinatorV2_5Mock.sol";
+
 contract RaffleTest is Test {
     HelperConfig public helperConfig;
     Raffle public raffle;
@@ -263,4 +265,103 @@ contract RaffleTest is Test {
      /*//////////////////////////////////////////////////////////////
                            FULFILLRANDOMWORDS
     //////////////////////////////////////////////////////////////*/
+     modifier raffleEntered() {
+        vm.prank(PLAYER);
+        raffle.enterRaffle{value: entranceFee}();
+        vm.warp(block.timestamp + interval + 1);
+        vm.roll(block.number + 1);
+        _;
+    }
+
+    modifier skipFork() {
+        if (block.chainid != 31337) {
+            return;
+        }
+        _;
+    }
+
+    function testFulfillRandomWordsCanOnlyBeCalledAfterPerformUpkeep() public raffleEntered skipFork {
+        // Arrange
+        // Act / Assert
+        vm.expectRevert(VRFCoordinatorV2_5Mock.InvalidRequest.selector);
+        // vm.mockCall could be used here...
+        VRFCoordinatorV2_5Mock(vrfCoordinator).fulfillRandomWords(0, address(raffle));
+
+        vm.expectRevert(VRFCoordinatorV2_5Mock.InvalidRequest.selector);
+        VRFCoordinatorV2_5Mock(vrfCoordinator).fulfillRandomWords(1, address(raffle));
+    }
+
+    function testFulfillRandomWordsPicksAWinnerResetsAndSendsMoney() public raffleEntered skipFork {
+
+        // Arrange
+        //预期的赢家的，模拟返回的随机数总是为1，% 4（4个玩家） = 1
+        address expectedWinner = address(1);
+        //4 个玩家抽奖
+        uint256 additionalEntrances = 3;
+        uint256 startingIndex = 1; // 从 1 开始循环，这样生成的玩家地址从 address(1) 起（避免 address(0)）。
+
+        for (uint256 i = startingIndex; i < startingIndex + additionalEntrances; i++) {
+            address player = address(uint160(i));
+            hoax(player, 1 ether); // deal 1 eth to the player。每个玩家充值1ether
+            raffle.enterRaffle{value: entranceFee}();
+        }
+        //获取时间
+        uint256 startingTimeStamp = raffle.getLastTimeStamp();
+
+        //记录期望中奖者 address(1) 在触发 VRF 之前的余额（此时他已经作为玩家之一并且付过 entranceFee，所以余额是付费后的余额），
+        //后续会用来断言中奖后余额增加量是否正确。
+        uint256 startingBalance = expectedWinner.balance; 
+
+        // Act
+        vm.recordLogs();
+        raffle.performUpkeep(""); // emits requestId
+        Vm.Log[] memory entries = vm.getRecordedLogs();
+        /**
+         * 打印调试用：把第二个 log 的第二个 topic（topics[1]，topic 索引从 0 开始）以 bytes32 打印出来，
+         * 方便在控制台查看（用于调试和确认请求 ID 的位置）。
+        注意：为什么 entries[1]？通常第 0 条 log 可能是其他事件（或索引不同），
+        开发者事先知道 requestId 在 entries[1].topics[1]，所以直接取第二条 log。
+         * 
+        */
+        console.logBytes32(entries[1].topics[1]);
+        bytes32 requestId = entries[1].topics[1]; // get the requestId from the logs
+        /**
+         * 用已部署的 VRF mock 模拟器（VRFCoordinatorV2_5Mock）去“完成（fulfill）”随机词（random words）的回调：
+            将 bytes32 requestId 强转为 uint256，并把请求回调目标设为抽奖合约 address(raffle)。
+            这一步等价于模拟 Chainlink 节点返回随机数，mock 会调用 raffle.rawFulfillRandomWords 或合约中对应的回调函数，
+            从而触发抽奖合约根据随机数选出中奖者并转账奖金、更新状态等。
+
+
+            测试环境下的随机数不是“真随机”
+            你用的是 VRFCoordinatorV2_5Mock。
+            这个 Mock 是 Chainlink 提供的，它不会调用真实的预言机，而是：
+            在你调用
+            fulfillRandomWords(requestId, raffleAddress)
+            的时候，Mock 就直接调用 raffle.rawFulfillRandomWords(requestId, fixedRandomWords)。
+            这里的 fixedRandomWords 是固定的数组（通常就是 [uint256(1)]，有的版本是递增数字）。
+            👉 也就是说，每次测试里 VRF mock 返回的随机数都是“1”。
+            winnerIndex = 1 % 4 = 1
+            winner = players[1] = address(1)
+            就和 expectedWinner = address(1) 完全对上了 ✅。
+        */
+        VRFCoordinatorV2_5Mock(vrfCoordinator).fulfillRandomWords(uint256(requestId), address(raffle));
+
+        // Assert
+        address recentWinner = raffle.getRecentWinner();
+        Raffle.RaffleState raffleState = raffle.getRaffleState();
+        uint256 winnerBalance = recentWinner.balance;
+        uint256 endingTimeStamp = raffle.getLastTimeStamp();
+        uint256 prize = entranceFee * (additionalEntrances + 1);//奖金
+
+        console.log("entranceFee:", entranceFee);
+        console.log("players:", raffle.getPlayerNumbers());
+        console.log("contract balance:", address(raffle).balance);
+        console.log("prize:", prize);
+
+        assert(recentWinner == expectedWinner);
+        assert(uint256(raffleState) == 0);
+
+        assert(winnerBalance == startingBalance + prize);
+        assert(endingTimeStamp > startingTimeStamp);
+    }
 }
