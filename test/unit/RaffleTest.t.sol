@@ -31,6 +31,9 @@ contract RaffleTest is Test {
         ///给玩家充钱
         vm.deal(PLAYER,STARTING_PLAYER_BLANCE);
     }
+    /*//////////////////////////////////////////////////////////////
+                              抽奖
+    //////////////////////////////////////////////////////////////*/
     //抽奖默认状态
     function testRaffleInitializesInOpenState() public view{
         assert(raffle.getRaffleState() == Raffle.RaffleState.OPEN);
@@ -129,4 +132,84 @@ contract RaffleTest is Test {
         vm.prank(PLAYER);
         raffle.enterRaffle{value:entranceFee}(); //抽奖
     }
+
+
+    /*//////////////////////////////////////////////////////////////
+                              CHECKUPKEEP
+    //////////////////////////////////////////////////////////////*/
+    function testCheckUpkeepReturnsFalseIfItHasNoBalance() public {
+         /// 没有玩家就没有钱 
+         //时间合法  
+         vm.warp(block.timestamp + interval + 1); 
+         vm.roll(block.number + 1); 
+
+         //Act
+        (bool upkeepNeeded,) = raffle.checkUpkeep("");
+        //assert
+        assert(!upkeepNeeded);
+    }
+
+
+
+    function testCheckUpkeepReturnsFalseIfRaffleIsntOpen() public {
+         //arrage
+         //进入抽奖 
+         vm.prank(PLAYER);
+         raffle.enterRaffle{value: entranceFee}();
+
+         //时间合法  
+         vm.warp(block.timestamp + interval + 1); 
+         vm.roll(block.number + 1); 
+
+        //请求抽奖状态更改为CALCULATING
+        raffle.performUpkeep("");
+        Raffle.RaffleState raffleState = raffle.getRaffleState();
+
+         //Act
+        (bool upkeepNeeded,) = raffle.checkUpkeep("");
+        // Assert
+        assert(raffleState == Raffle.RaffleState.CALCULATING);
+        assert(upkeepNeeded == false);
+    }
+
+    function testCheckUpkeepReturnsFalseIfEnoughTimeHasntPassed() public {
+        // Arrange
+        vm.prank(PLAYER);
+        raffle.enterRaffle{value: entranceFee}();
+        // Act
+        (bool upkeepNeeded,) = raffle.checkUpkeep("");
+        // Assert
+        assert(!upkeepNeeded);
+    }
+
+    function testCheckUpkeepReturnsTrueWhenParametersGood() public {
+
+         //arrage
+         //进入抽奖 
+         vm.prank(PLAYER);
+         raffle.enterRaffle{value: entranceFee}();
+         //时间合法  
+         vm.warp(block.timestamp + interval + 1); 
+         vm.roll(block.number + 1); 
+         //act 
+         (bool upkeepNeeded,) = raffle.checkUpkeep("");
+         //assert
+         assert(upkeepNeeded);
+         
+    }
+     /*//////////////////////////////////////////////////////////////
+                            PERFORM  UPKEEP
+    //////////////////////////////////////////////////////////////*/
+    function testPerformUpkeepCanOnlyRunIfCheckUpkeepIsTrue() public {
+
+    }
+    function testPerformUpkeepRevertsIfCheckUpkeepIsFalse() public {
+
+    }
+    function testPerformUpkeepUpdatesRaffleStateAndEmitsRequestId() public {
+
+    }
+     /*//////////////////////////////////////////////////////////////
+                           FULFILLRANDOMWORDS
+    //////////////////////////////////////////////////////////////*/
 }
