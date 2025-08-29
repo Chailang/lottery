@@ -63,7 +63,8 @@ contract Raffle is VRFConsumerBaseV2Plus,AutomationCompatibleInterface{ //抽奖
     /**Events */
     event RaffleEntered(address indexed player); //玩家进入抽奖事件
     event RaffleWinnerPicked(address indexed winner); //玩家中奖事件
-    
+    event RequestedRaffleWinner(uint256 indexed requestId); //请求 id
+
     
     /**function */
     constructor(uint256 entranceFee,
@@ -173,7 +174,8 @@ contract Raffle is VRFConsumerBaseV2Plus,AutomationCompatibleInterface{ //抽奖
                     })
                 )
         });
-        s_vrfCoordinator.requestRandomWords(request); 
+        uint256 requestId = s_vrfCoordinator.requestRandomWords(request); 
+        emit RequestedRaffleWinner(requestId);
     }
 
     function getEntranceFee() public view returns (uint256) { //获取入场费

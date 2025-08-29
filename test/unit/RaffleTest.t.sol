@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: SEE LICENSE IN LICENSE
 pragma solidity ^0.8.20;
 import {Test} from "forge-std/Test.sol";
+import {Vm} from "forge-std/Vm.sol";
 import {Raffle} from "../../src/Raffle.sol";
 import {DeployRaffle} from "../../script/DeployRaffle.s.sol";
 import {HelperConfig} from "../../script/HelperConfig.s.sol";
@@ -200,13 +201,64 @@ contract RaffleTest is Test {
                             PERFORM  UPKEEP
     //////////////////////////////////////////////////////////////*/
     function testPerformUpkeepCanOnlyRunIfCheckUpkeepIsTrue() public {
+          // Arrange
+
+        //玩家抽奖 - 更新时间戳  
+        vm.prank(PLAYER);
+        raffle.enterRaffle{value: entranceFee}();
+        vm.warp(block.timestamp + interval + 1);
+        vm.roll(block.number + 1);
+
+        // Act / Assert
+        // It doesnt revert
+        raffle.performUpkeep("");
+
 
     }
     function testPerformUpkeepRevertsIfCheckUpkeepIsFalse() public {
-
+         // Arrange
+        uint256 currentBalance = 0;
+        uint256 numPlayers = 0;
+        Raffle.RaffleState rState = raffle.getRaffleState();
+        // Act / Assert
+        vm.expectRevert(
+            abi.encodeWithSelector(Raffle.Raffle__UpkeepNotNeeded.selector, currentBalance, numPlayers, rState)
+        );
+        raffle.performUpkeep("");
     }
-    function testPerformUpkeepUpdatesRaffleStateAndEmitsRequestId() public {
 
+
+    function testPerformUpkeepUpdatesRaffleStateAndEmitsRequestId() public {
+         // Arrange
+        vm.prank(PLAYER); // 将下一次外部调用的 msg.sender 伪装成 PLAYER
+        // 以 PLAYER 身份支付报名费进入抽奖。// 作用：合约里有玩家、有余额（满足 checkUpkeep 的玩家/余额条件）
+        raffle.enterRaffle{value: entranceFee}(); 
+        //// 把当前区块时间快进到 “当前时间 + interval + 1”
+       // 注意你的合约用的是 “> i_interval” 的严格大于判断，所以这里 +1 保证时间条件成立
+        vm.warp(block.timestamp + interval + 1);
+        vm.roll(block.number + 1);
+
+        // Act
+        vm.recordLogs(); // 开始录制从这一刻起产生的所有日志（包括本函数内以及子调用产生的事件logs）
+        raffle.performUpkeep(""); // emits requestId
+
+        // 取回刚才录制到的所有日志（事件）。每一条包含 emitter（发出日志的合约地址）、topics、data 等
+        Vm.Log[] memory entries = vm.getRecordedLogs();
+        // 从第二条日志（entries[1]）里取第一个 indexed 参数（topics[1]），作为 requestId。
+        // 约定俗成：
+        // - topics[0] 是事件签名（keccak hash）
+        // - topics[1] 是该事件的第一个 indexed 参数
+        // 这里假设第2条日志正好是 VRF Coordinator 的 “RandomWordsRequested” 事件，
+        // 且其第一个 indexed 参数就是 requestId。
+       // 注意：这对日志顺序和事件签名有假设，实际项目可能需要更稳妥的筛选（见下方“小提示”）
+        bytes32 requestId = entries[1].topics[1];
+
+        // Assert
+        Raffle.RaffleState raffleState = raffle.getRaffleState();
+        // requestId = raffle.getLastRequestId();
+        // 验证从日志里拿到的 requestId 非零，说明确实发起了 VRF 请求
+        assert(uint256(requestId) > 0);
+        assert(uint256(raffleState) == 1); // 0 = open, 1 = calculating
     }
      /*//////////////////////////////////////////////////////////////
                            FULFILLRANDOMWORDS
